@@ -122,8 +122,10 @@ func (srv *server) upload(ctx context.Context, d time.Duration, bucket string, u
 		if err != nil || info.IsDir() || path == srv.currentName() {
 			return nil
 		}
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		defer cancel()
 		start := time.Now()
-		switch err := uploadFile(upl, bucket, path); err {
+		switch err := uploadFile(ctx, upl, bucket, path); err {
 		case nil:
 			srv.log.Printf("%q uploaded in %v", path, time.Since(start).Round(100*time.Millisecond))
 			_ = os.Remove(path)
@@ -145,14 +147,14 @@ func (srv *server) upload(ctx context.Context, d time.Duration, bucket string, u
 	}
 }
 
-func uploadFile(upl *s3manager.Uploader, bucket, name string) error {
+func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, name string) error {
 	f, err := os.Open(name)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 	key := strings.Replace(filepath.Base(name), "-", "/", 3) + ".json.gz"
-	_, err = upl.Upload(&s3manager.UploadInput{
+	_, err = upl.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket: &bucket,
 		Key:    &key,
 		Body:   f,
