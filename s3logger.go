@@ -1,4 +1,40 @@
-// TODO describe program
+// Program s3logger collects json messages over TCP, stores them into
+// gzip-compressed files split by time and uploads these files to AWS s3 bucket.
+//
+// Once started, service accepts TCP connections and expects clients to send
+// streams of json objects over such connections. s3logger only closes
+// connection itself if it encounters malformed json, otherwise it expects
+// client to close the connection once it is done with it. s3logger does not
+// send anything back to the client, it only reads data from the client.
+//
+// s3logger accumulates received messages over predefined time window (-t flag)
+// to a temporary log file creating new ones as needed; previous files are
+// uploaded to s3 bucket in background and removed after successful upload.
+// Program only writes to a single temporary log file at a time, so json
+// messages received from multiple concurrent connections are interleaved into
+// a single json stream.
+//
+// s3logger uploads files to a specified bucket using predefined s3 object
+// naming scheme:
+//
+// 	2018/02/09/20180209T213803_df718a7818e53243.json.gz
+//
+// It uses year/month/date "directories", object name base starting with date
+// and time when log file was created (UTC) followed by hex-encoded 64-bit
+// random value and .json.gz suffix.
+//
+// s3logger does not use TLS at the moment as it is expected to run on localhost
+// or inside a trusted network.
+//
+//	Usage of s3logger:
+//	  -addr string
+//	    	address to listen (default "localhost:8080")
+//	  -bucket string
+//	    	s3 bucket to upload logs
+//	  -dir string
+//	    	directory to keep unsent files (default "/var/spool/s3logger")
+//	  -t duration
+//	    	time to use single file (min 1m) (default 5m0s)
 package main
 
 import (
