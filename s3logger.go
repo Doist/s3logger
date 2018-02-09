@@ -55,7 +55,7 @@ type runArgs struct {
 	Addr   string        `flag:"addr,address to listen"`
 	Bucket string        `flag:"bucket,s3 bucket to upload logs"`
 	Dir    string        `flag:"dir,directory to keep unsent files"`
-	D      time.Duration `flag:"t,create new file every after this time (min 1m)"`
+	D      time.Duration `flag:"t,time to use single file (min 1m)"`
 }
 
 func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.Uploader) error {
