@@ -155,7 +155,7 @@ type server struct {
 
 func (srv *server) upload(ctx context.Context, d time.Duration, bucket string, upl *s3manager.Uploader) error {
 	walkFn := func(path string, info os.FileInfo, err error) error {
-		if err != nil || info.IsDir() || path == srv.currentName() {
+		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".json.gz") || path == srv.currentName() {
 			return nil
 		}
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -189,7 +189,7 @@ func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, name strin
 		return err
 	}
 	defer f.Close()
-	key := strings.Replace(filepath.Base(name), "-", "/", 3) + ".json.gz"
+	key := strings.Replace(filepath.Base(name), "-", "/", 3)
 	_, err = upl.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket: &bucket,
 		Key:    &key,
@@ -230,7 +230,7 @@ func (srv *server) ingest(ctx context.Context, d time.Duration) error {
 func (srv *server) create() (io.Writer, error) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
-	f, err := os.Create(filepath.Join(srv.dir, randomName()))
+	f, err := os.Create(filepath.Join(srv.dir, randomName()+".json.gz"))
 	if err != nil {
 		return nil, err
 	}
