@@ -23,8 +23,20 @@
 // and time when log file was created (UTC) followed by hex-encoded 64-bit
 // random value and .json.gz suffix.
 //
-// s3logger does not use TLS at the moment as it is expected to run on localhost
-// or inside a trusted network.
+// Since s3logger uses AWS SDK, s3 bucket credentials should be configured
+// directly by means supported by SDK. The easiest way to do so is with
+// environment variables:
+//
+//	AWS_ACCESS_KEY=your_access_key
+//	AWS_SECRET_KEY=your_secret_key
+//	AWS_REGION=us-east-1
+//
+// See
+// https://godoc.org/github.com/aws/aws-sdk-go/aws/session#hdr-Environment_Variables
+// for details.
+//
+// s3logger does not use TLS for its listener at the moment as it is expected to
+// run on localhost or inside trusted network.
 //
 //	Usage of s3logger:
 //	  -addr string
