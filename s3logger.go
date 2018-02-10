@@ -12,7 +12,9 @@
 // uploaded to s3 bucket in background and removed after successful upload.
 // Program only writes to a single temporary log file at a time, so json
 // messages received from multiple concurrent connections are interleaved into
-// a single json stream.
+// a single json stream. It does its best not to lose messages, but can still
+// drop them if they're coming faster than could be saved on disk or there's any
+// disk write error.
 //
 // s3logger uploads files to a specified bucket using predefined s3 object
 // naming scheme:
