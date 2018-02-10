@@ -325,13 +325,9 @@ func (cw chain) Close() error {
 // date and can be translated to s3 object name in date-sharded "subdirectories"
 // by replacing - with /.
 func randomName() string {
-	const format = "2006-01-02-20060102T150405_"
-	rnd := make([]byte, 8)
-	if _, err := rand.Read(rnd); err != nil {
+	b := make([]byte, 8)
+	if _, err := rand.Read(b); err != nil {
 		panic(err)
 	}
-	b := make([]byte, len(format)+len(rnd)*2)
-	hex.Encode(b[len(format):], rnd)
-	time.Now().In(time.UTC).AppendFormat(b[:0], format)
-	return string(b)
+	return time.Now().In(time.UTC).Format("2006-01-02-20060102T150405_") + hex.EncodeToString(b)
 }
