@@ -130,7 +130,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 	}
 	defer ln.Close()
 
-	srv := &server{dir: args.Dir, ch: make(chan []byte, 100), log: logger}
+	srv := &server{dir: args.Dir, ch: make(chan json.RawMessage, 100), log: logger}
 
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error { <-ctx.Done(); return ln.Close() })
@@ -159,7 +159,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 
 type server struct {
 	dir string
-	ch  chan []byte
+	ch  chan json.RawMessage
 	log *log.Logger
 
 	mu   sync.Mutex
@@ -213,28 +213,30 @@ func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, name strin
 }
 
 func (srv *server) ingest(ctx context.Context, d time.Duration) error {
-	var w io.Writer
-	var err error
+	var enc *json.Encoder
 	timer := time.NewTimer(d)
 	defer timer.Stop()
 	for {
 		select {
 		case msg := <-srv.ch:
-			if w == nil {
-				if w, err = srv.create(); err != nil {
+			if enc == nil {
+				switch w, err := srv.create(); err {
+				case nil:
+					enc = json.NewEncoder(w)
+				default:
 					srv.log.Print("file create: ", err)
 					continue
 				}
 			}
-			if _, err := w.Write(append(msg, '\n')); err != nil {
+			if err := enc.Encode(msg); err != nil {
 				srv.log.Print("message write: ", err)
 				srv.close()
-				w = nil
+				enc = nil
 			}
 		case <-timer.C:
 			timer.Reset(d)
 			srv.close()
-			w = nil
+			enc = nil
 		case <-ctx.Done():
 			return srv.close()
 		}
