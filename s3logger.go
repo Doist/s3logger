@@ -14,7 +14,7 @@
 // messages received from multiple concurrent connections are interleaved into
 // a single json stream. It does its best not to lose messages, but can still
 // drop them if they're coming faster than could be saved on disk or there's any
-// disk write error.
+// disk write error. Stored messages are separated by new line (0xa).
 //
 // s3logger uploads files to a specified bucket using predefined s3 object
 // naming scheme:
@@ -226,7 +226,7 @@ func (srv *server) ingest(ctx context.Context, d time.Duration) error {
 					continue
 				}
 			}
-			if _, err := w.Write(msg); err != nil {
+			if _, err := w.Write(append(msg, '\n')); err != nil {
 				srv.log.Print("message write: ", err)
 				srv.close()
 				w = nil
