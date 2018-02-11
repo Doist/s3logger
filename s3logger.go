@@ -131,7 +131,6 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 	defer ln.Close()
 
 	srv := &server{dir: args.Dir, ch: make(chan json.RawMessage, 100), log: logger}
-
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error { <-ctx.Done(); return ln.Close() })
 	group.Go(func() error { return srv.ingest(ctx, args.D) })
@@ -184,7 +183,6 @@ func (srv *server) upload(ctx context.Context, d time.Duration, bucket string, u
 		}
 		return nil
 	}
-
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 	for {
