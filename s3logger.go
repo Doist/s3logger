@@ -3,9 +3,8 @@
 //
 // Once started, service accepts TCP connections and expects clients to send
 // streams of json objects over such connections. s3logger only closes
-// connection itself if it encounters malformed json, otherwise it expects
-// client to close the connection once it is done with it. s3logger does not
-// send anything back to the client, it only reads data from the client.
+// connection if it encounters malformed json or single object size exceeds
+// 4 MiB limit. s3logger only reads data from the client.
 //
 // s3logger accumulates received messages over predefined time window (-t flag)
 // to a temporary log file creating new ones as needed; previous files are
@@ -280,11 +279,14 @@ func (srv *server) handleConn(conn io.ReadCloser) error {
 		tc.SetKeepAlive(true)
 		tc.SetKeepAlivePeriod(3 * time.Minute)
 	}
-	dec := json.NewDecoder(bufio.NewReader(conn))
+	const maxSize = 4 << 20 // single json object size limit (approximate)
+	rd := &io.LimitedReader{R: bufio.NewReader(conn), N: maxSize}
+	dec := json.NewDecoder(rd)
 	for {
 		var msg json.RawMessage
 		switch err := dec.Decode(&msg); err {
 		case nil:
+			rd.N = maxSize
 		case io.EOF:
 			return nil
 		default:

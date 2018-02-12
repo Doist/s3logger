@@ -4,9 +4,8 @@ bucket.
 
 Once started, service accepts TCP connections and expects clients to send
 streams of json objects over such connections. s3logger only closes
-connection itself if it encounters malformed json, otherwise it expects
-client to close the connection once it is done with it. s3logger does not
-send anything back to the client, it only reads data from the client.
+connection if it encounters malformed json or single object size exceeds 4
+MiB limit. s3logger only reads data from the client.
 
 s3logger accumulates received messages over predefined time window (-t flag)
 to a temporary log file creating new ones as needed; previous files are
