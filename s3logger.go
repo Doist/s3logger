@@ -19,9 +19,9 @@
 // s3logger uploads files to a specified bucket using predefined s3 object
 // naming scheme:
 //
-// 	2018/02/09/20180209T213803_df718a7818e53243.json.gz
+// 	dt=2018-02-09/20180209T213803_df718a7818e53243.json.gz
 //
-// It uses year/month/date "directories", object name base starting with date
+// It uses dt=YYYY-MM-DD "directories", object name base starting with date
 // and time when log file was created (UTC) followed by hex-encoded 64-bit
 // random value and .json.gz suffix.
 //
@@ -201,7 +201,7 @@ func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, name strin
 		return err
 	}
 	defer f.Close()
-	key := strings.Replace(filepath.Base(name), "-", "/", 3)
+	key := strings.Replace(filepath.Base(name), ".", "/", 1)
 	_, err = upl.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket: &bucket,
 		Key:    &key,
@@ -323,11 +323,11 @@ func (cw chain) Close() error {
 
 // randomName returns base name of the temporary file. It encodes file creation
 // date and can be translated to s3 object name in date-sharded "subdirectories"
-// by replacing - with /.
+// by replacing . with /.
 func randomName() string {
 	b := make([]byte, 8)
 	if _, err := rand.Read(b); err != nil {
 		panic(err)
 	}
-	return time.Now().In(time.UTC).Format("2006-01-02-20060102T150405_") + hex.EncodeToString(b)
+	return time.Now().In(time.UTC).Format("dt=2006-01-02.20060102T150405_") + hex.EncodeToString(b)
 }

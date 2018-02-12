@@ -20,11 +20,11 @@ any disk write error. Stored messages are separated by new line (0xa).
 s3logger uploads files to a specified bucket using predefined s3 object
 naming scheme:
 
-    2018/02/09/20180209T213803_df718a7818e53243.json.gz
+    dt=2018-02-09/20180209T213803_df718a7818e53243.json.gz
 
-It uses year/month/date "directories", object name base starting with date
-and time when log file was created (UTC) followed by hex-encoded 64-bit
-random value and .json.gz suffix.
+It uses dt=YYYY-MM-DD "directories", object name base starting with date and
+time when log file was created (UTC) followed by hex-encoded 64-bit random
+value and .json.gz suffix.
 
 Since s3logger uses AWS SDK, s3 bucket credentials should be configured
 directly by means supported by SDK. The easiest way to do so is with
