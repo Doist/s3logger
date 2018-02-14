@@ -63,6 +63,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -104,6 +105,7 @@ type runArgs struct {
 	Addr   string        `flag:"addr,address to listen"`
 	Bucket string        `flag:"bucket,s3 bucket to upload logs"`
 	Dir    string        `flag:"dir,directory to keep unsent files"`
+	Prefix string        `flag:"prefix,s3 object name prefix (directory in a bucket)"`
 	D      time.Duration `flag:"t,time to use single file (min 1m)"`
 }
 
@@ -133,7 +135,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error { <-ctx.Done(); return ln.Close() })
 	group.Go(func() error { return srv.ingest(ctx, args.D) })
-	group.Go(func() error { return srv.upload(ctx, args.D, args.Bucket, upl) })
+	group.Go(func() error { return srv.upload(ctx, args.D, args.Bucket, args.Prefix, upl) })
 	group.Go(func() error {
 		for {
 			conn, err := ln.Accept()
@@ -165,7 +167,7 @@ type server struct {
 	name string
 }
 
-func (srv *server) upload(ctx context.Context, d time.Duration, bucket string, upl *s3manager.Uploader) error {
+func (srv *server) upload(ctx context.Context, d time.Duration, bucket, prefix string, upl *s3manager.Uploader) error {
 	walkFn := func(path string, info os.FileInfo, err error) error {
 		if err != nil || info.IsDir() || !strings.HasSuffix(path, ".json.gz") || path == srv.currentName() {
 			return nil
@@ -173,7 +175,7 @@ func (srv *server) upload(ctx context.Context, d time.Duration, bucket string, u
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 		defer cancel()
 		start := time.Now()
-		switch err := uploadFile(ctx, upl, bucket, path); err {
+		switch err := uploadFile(ctx, upl, bucket, prefix, path); err {
 		case nil:
 			srv.log.Printf("%q uploaded in %v", path, time.Since(start).Round(100*time.Millisecond))
 			_ = os.Remove(path)
@@ -194,13 +196,13 @@ func (srv *server) upload(ctx context.Context, d time.Duration, bucket string, u
 	}
 }
 
-func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, name string) error {
+func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, prefix, name string) error {
 	f, err := os.Open(name)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	key := strings.Replace(filepath.Base(name), ".", "/", 1)
+	key := path.Join(prefix, strings.Replace(filepath.Base(name), ".", "/", 1))
 	_, err = upl.UploadWithContext(ctx, &s3manager.UploadInput{
 		Bucket: &bucket,
 		Key:    &key,
