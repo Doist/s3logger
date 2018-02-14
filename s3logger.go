@@ -203,11 +203,7 @@ func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, prefix, na
 	}
 	defer f.Close()
 	key := path.Join(prefix, strings.Replace(filepath.Base(name), ".", "/", 1))
-	_, err = upl.UploadWithContext(ctx, &s3manager.UploadInput{
-		Bucket: &bucket,
-		Key:    &key,
-		Body:   f,
-	})
+	_, err = upl.UploadWithContext(ctx, &s3manager.UploadInput{Bucket: &bucket, Key: &key, Body: f})
 	return err
 }
 
