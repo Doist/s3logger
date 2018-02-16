@@ -148,7 +148,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 				return err
 			}
 			go func(conn net.Conn) {
-				if err := srv.handleConn(conn); err != nil {
+				if err := srv.handleConn(ctx, conn); err != nil {
 					logger.Printf("%s: %v", conn.RemoteAddr(), err)
 				}
 			}(conn)
@@ -271,7 +271,7 @@ func (srv *server) currentName() string {
 	return srv.name
 }
 
-func (srv *server) handleConn(conn io.ReadCloser) error {
+func (srv *server) handleConn(ctx context.Context, conn io.ReadCloser) error {
 	defer conn.Close()
 	if tc, ok := conn.(*net.TCPConn); ok {
 		tc.SetKeepAlive(true)
@@ -292,8 +292,8 @@ func (srv *server) handleConn(conn io.ReadCloser) error {
 		}
 		select {
 		case srv.ch <- msg:
-		default:
-			srv.log.Print("message dropped due to queue overflow")
+		case <-ctx.Done():
+			return nil
 		}
 	}
 }
