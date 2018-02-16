@@ -135,7 +135,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error { <-ctx.Done(); return ln.Close() })
 	group.Go(func() error { return srv.ingest(ctx, args.D) })
-	group.Go(func() error { return srv.upload(ctx, args.D, args.Bucket, args.Prefix, upl) })
+	group.Go(func() error { return srv.upload(ctx, args.D/2, args.Bucket, args.Prefix, upl) })
 	group.Go(func() error {
 		for {
 			conn, err := ln.Accept()
