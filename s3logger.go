@@ -131,7 +131,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 	}
 	defer ln.Close()
 
-	srv := &server{dir: args.Dir, ch: make(chan json.RawMessage, 100), log: logger}
+	srv := &server{dir: args.Dir, ch: make(chan json.RawMessage, 1000), log: logger}
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error { <-ctx.Done(); return ln.Close() })
 	group.Go(func() error { return srv.ingest(ctx, args.D) })
