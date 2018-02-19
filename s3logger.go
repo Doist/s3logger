@@ -131,7 +131,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 	}
 	defer ln.Close()
 
-	srv := &server{dir: args.Dir, ch: make(chan json.RawMessage, 1000), log: logger}
+	srv := &server{dir: args.Dir, ch: make(chan json.RawMessage, 1000), wake: make(chan struct{}), log: logger}
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error { <-ctx.Done(); return ln.Close() })
 	group.Go(func() error { return srv.ingest(ctx, args.D) })
@@ -158,9 +158,10 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 }
 
 type server struct {
-	dir string
-	ch  chan json.RawMessage
-	log *log.Logger
+	dir  string
+	ch   chan json.RawMessage
+	wake chan struct{} // to wake uploading goroutine early
+	log  *log.Logger
 
 	mu   sync.Mutex
 	w    io.WriteCloser
@@ -191,6 +192,8 @@ func (srv *server) upload(ctx context.Context, d time.Duration, bucket, prefix s
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
+			_ = filepath.Walk(srv.dir, walkFn)
+		case <-srv.wake:
 			_ = filepath.Walk(srv.dir, walkFn)
 		}
 	}
@@ -232,6 +235,10 @@ func (srv *server) ingest(ctx context.Context, d time.Duration) error {
 			timer.Reset(d)
 			srv.close()
 			enc = nil
+			select {
+			case srv.wake <- struct{}{}:
+			default:
+			}
 		case <-ctx.Done():
 			return srv.close()
 		}
