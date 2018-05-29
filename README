@@ -10,11 +10,13 @@ MiB limit. s3logger only reads data from the client.
 s3logger accumulates received messages over predefined time window (-t flag)
 to a temporary log file creating new ones as needed; previous files are
 uploaded to s3 bucket in background and removed after successful upload.
-Program only writes to a single temporary log file at a time, so json
-messages received from multiple concurrent connections are interleaved into
-a single json stream. It does its best not to lose messages, but can still
-drop them if they're coming faster than could be saved on disk or there's
-any disk write error. Stored messages are separated by new line (0xa).
+Optionally maximum size of input read can be specified in megabytes (-mb
+flag) to rotate file before reaching predefined time. Program only writes to
+a single temporary log file at a time, so json messages received from
+multiple concurrent connections are interleaved into a single json stream.
+It does its best not to lose messages, but can still drop them if they're
+coming faster than could be saved on disk or there's any disk write error.
+Stored messages are separated by new line (0xa).
 
 s3logger uploads files to a specified bucket using predefined s3 object
 naming scheme:
@@ -34,10 +36,14 @@ to run on localhost or inside trusted network.
 
     Usage of s3logger:
       -addr string
-        	address to listen (default "localhost:8080")
+    	address to listen (default "localhost:8080")
       -bucket string
-        	s3 bucket to upload logs
+    	s3 bucket to upload logs
       -dir string
-        	directory to keep unsent files (default "/var/spool/s3logger")
+    	directory to keep unsent files (default "/var/spool/s3logger")
+      -mb int
+    	megabytes of input read until file is rotated (0 to disable) (default 512)
+      -prefix string
+    	s3 object name prefix (directory in a bucket)
       -t duration
-        	time to use single file (min 1m) (default 5m0s)
+    	time to use single file (min 1m) (default 5m0s)

@@ -9,11 +9,13 @@
 // s3logger accumulates received messages over predefined time window (-t flag)
 // to a temporary log file creating new ones as needed; previous files are
 // uploaded to s3 bucket in background and removed after successful upload.
-// Program only writes to a single temporary log file at a time, so json
-// messages received from multiple concurrent connections are interleaved into
-// a single json stream. It does its best not to lose messages, but can still
-// drop them if they're coming faster than could be saved on disk or there's any
-// disk write error. Stored messages are separated by new line (0xa).
+// Optionally maximum size of input read can be specified in megabytes (-mb
+// flag) to rotate file before reaching predefined time.  Program only writes to
+// a single temporary log file at a time, so json messages received from
+// multiple concurrent connections are interleaved into a single json stream. It
+// does its best not to lose messages, but can still drop them if they're coming
+// faster than could be saved on disk or there's any disk write error. Stored
+// messages are separated by new line (0xa).
 //
 // s3logger uploads files to a specified bucket using predefined s3 object
 // naming scheme:
@@ -33,13 +35,17 @@
 //
 //	Usage of s3logger:
 //	  -addr string
-//	    	address to listen (default "localhost:8080")
+//		address to listen (default "localhost:8080")
 //	  -bucket string
-//	    	s3 bucket to upload logs
+//		s3 bucket to upload logs
 //	  -dir string
-//	    	directory to keep unsent files (default "/var/spool/s3logger")
+//		directory to keep unsent files (default "/var/spool/s3logger")
+//	  -mb int
+//		megabytes of input read until file is rotated (0 to disable) (default 512)
+//	  -prefix string
+//		s3 object name prefix (directory in a bucket)
 //	  -t duration
-//	    	time to use single file (min 1m) (default 5m0s)
+//		time to use single file (min 1m) (default 5m0s)
 package main
 
 import (
@@ -72,6 +78,7 @@ func main() {
 	args := runArgs{
 		Dir:  "/var/spool/s3logger",
 		D:    5 * time.Minute,
+		Mb:   512,
 		Addr: "localhost:8080",
 	}
 	autoflags.Parse(&args)
@@ -99,6 +106,7 @@ type runArgs struct {
 	Dir    string        `flag:"dir,directory to keep unsent files"`
 	Prefix string        `flag:"prefix,s3 object name prefix (directory in a bucket)"`
 	D      time.Duration `flag:"t,time to use single file (min 1m)"`
+	Mb     int           `flag:"mb,megabytes of input read until file is rotated (0 to disable)"`
 }
 
 func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.Uploader) error {
@@ -126,7 +134,7 @@ func run(ctx context.Context, args runArgs, logger *log.Logger, upl *s3manager.U
 	srv := &server{dir: args.Dir, ch: make(chan json.RawMessage, 1000), wake: make(chan struct{}), log: logger}
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error { <-ctx.Done(); return ln.Close() })
-	group.Go(func() error { return srv.ingest(ctx, args.D) })
+	group.Go(func() error { return srv.ingest(ctx, args.Mb<<20, args.D) })
 	group.Go(func() error { return srv.upload(ctx, args.D/2, args.Bucket, args.Prefix, upl) })
 	group.Go(func() error {
 		for {
@@ -202,8 +210,9 @@ func uploadFile(ctx context.Context, upl *s3manager.Uploader, bucket, prefix, na
 	return err
 }
 
-func (srv *server) ingest(ctx context.Context, d time.Duration) error {
+func (srv *server) ingest(ctx context.Context, maxSize int, d time.Duration) error {
 	var enc *json.Encoder
+	var size int
 	timer := time.NewTimer(d)
 	defer timer.Stop()
 	for {
@@ -213,6 +222,7 @@ func (srv *server) ingest(ctx context.Context, d time.Duration) error {
 				switch w, err := srv.create(); err {
 				case nil:
 					enc = json.NewEncoder(w)
+					size = 0
 				default:
 					srv.log.Print("file create: ", err)
 					continue
@@ -222,6 +232,16 @@ func (srv *server) ingest(ctx context.Context, d time.Duration) error {
 				srv.log.Print("message write: ", err)
 				srv.close()
 				enc = nil
+			}
+			size += len(msg)
+			if maxSize > 0 && size >= maxSize {
+				timer.Reset(d)
+				srv.close()
+				enc = nil
+				select {
+				case srv.wake <- struct{}{}:
+				default:
+				}
 			}
 		case <-timer.C:
 			timer.Reset(d)
