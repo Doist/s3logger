@@ -1,4 +1,4 @@
-module github.com/artyom/s3logger
+module github.com/Doist/s3logger
 
 require (
 	github.com/artyom/autoflags v1.1.0
