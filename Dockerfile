@@ -1,11 +1,10 @@
 FROM golang:alpine AS builder
-RUN apk add --update upx
 WORKDIR /app
 ENV GOPROXY=https://proxy.golang.org
 COPY go.mod go.sum ./
 RUN go mod download
 COPY *.go ./
-RUN CGO_ENABLED=0 go build -ldflags='-s -w' -o s3logger && upx --lzma s3logger
+RUN CGO_ENABLED=0 go build -ldflags='-s -w' -o s3logger
 
 FROM scratch
 COPY --from=builder /app/s3logger /bin/s3logger
