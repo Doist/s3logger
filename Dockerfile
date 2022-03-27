@@ -1,10 +1,11 @@
-FROM golang:alpine AS builder
+FROM public.ecr.aws/docker/library/golang:alpine AS builder
+RUN apk add git
 WORKDIR /app
-ENV GOPROXY=https://proxy.golang.org
+ENV CGO_ENABLED=0 GOFLAGS="-ldflags=-w -trimpath"
 COPY go.mod go.sum ./
 RUN go mod download
-COPY *.go ./
-RUN CGO_ENABLED=0 go build -ldflags='-s -w' -o s3logger
+COPY . .
+RUN go build -o s3logger
 
 FROM scratch
 COPY --from=builder /app/s3logger /bin/s3logger
